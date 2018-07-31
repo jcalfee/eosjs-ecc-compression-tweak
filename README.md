@@ -7,8 +7,19 @@ intended public key.
 This issue was most likely to have appeared during the Claim Key registration
 phase prior to the launch of EOS.
 
-A signature is generated but it is rejected:
+Status:
+
+A signature is generated but it is rejected by the testnet:
 > "code":3090003,"name":"unsatisfied_authorization","what":"Provided keys, permissions, and delays do not satisfy declared authorizations"
+
+Using eosjs-ecc, the signature recovered unintended public:
+```js
+// Depends on eosjs-ecc custom build: https://github.com/EOSIO/eosjs-ecc/pull/22
+sig = ecc.sign('', unintendedPrivate)
+sigPublic = ecc.recover(sig, '')
+const match = sigPublic === unintendedPublic.toString()
+assert(match)
+```
 
 This is a console script.
 
