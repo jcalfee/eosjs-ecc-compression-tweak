@@ -1,0 +1,39 @@
+{
+  "name": "eosjs-ecc-compression-tweak",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "npm run browserify && npm run srisum",
+    "browserify": "npx browserify@16.2.2 -o lib/eosjs-ecc-compression-tweak.js -s eosjsEccCompressionTweak index.js",
+    "srisum": "npx srisum lib/eosjs-ecc-compression-tweak.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bigi": "^1.4.2",
+    "bs58": "^4.0.1"
+  },
+  "babel": {
+    "presets": [
+      "es2015"
+    ],
+    "plugins": [
+      "syntax-async-functions",
+      "transform-regenerator",
+      [
+        "transform-runtime",
+        {
+          "polyfill": false,
+          "regenerator": true
+        }
+      ]
+    ]
+  },
+  "devDependencies": {
+    "babel-plugin-syntax-async-functions": "^6.13.0",
+    "babel-plugin-transform-regenerator": "^6.26.0",
+    "babel-plugin-transform-runtime": "^6.23.0",
+    "babel-preset-es2015": "^6.24.1"
+  }
+}

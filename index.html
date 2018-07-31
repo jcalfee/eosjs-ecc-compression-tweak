@@ -1,0 +1,138 @@
+
+<html>
+<meta charset="utf-8">
+<title>Eos Private Key Compression Tweak</title>
+<head>
+
+<script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.0/lib/eos.min.js"
+  integrity="sha512-vNyLnOEb7uFmEtVbLnyZQ9/k4zckM2Vu3jJOKq6XfWEVZG0yKcjDExVN4EQ7e3F+rePWRncMolI2xFi/3qo62A=="
+  crossorigin="anonymous"></script>
+
+<script src="./index.js"></script>
+
+<script>
+/**
+On the junglenet, this private key tweak is not passing signature
+validation when used with wif `L5TCkLizyYq..`.
+
+Due to a bug in eosjs-ecc v4.0.0 and prior, Bitcoin compressed WIF private keys
+are accepted but interpreted incorrectly.  Specifically the compression
+flag was included as part of the Private Key changing the resulting
+private key number.  That private key number was used to generate a
+matching public key.
+
+Newly generated key-pairs are unaffected.  This only affects users that
+generated a compressed Bitcoin private key from other sources then
+used that private key in a version of eosjs-ecc prior to v4.0.1
+(before May 24, 2018).
+
+Example Private key:   L5TCkLizyYqjvKSy6jg1XM3Lc4uTDwwvHS2BYatyXSyoS8T5kC2z
+Unintended Public key: EOS6ig7VSsHLtt8BDkVV39HYAQsdNUwwhY1SPJBUBEA4NK8Zpkz2y
+Intended Public:       EOS59DAgjLtnPY34ezGspqdezuNaES2HE99dcsay3uRjk557F2Hd9
+
+Since the key-pair seems to be valid but different than expected, this
+tweak is provided to allow affected keys to be re-parsed and provided
+into either eosjs-ecc or eosjs for the purpose of account recovery.
+
+@see https://github.com/EOSIO/eosjs-ecc/issues/16
+
+<code>
+Fixed in eosjs-ecc v4.0.1  May 24, 2018 9d4e859
+Fixed in eosjs     v12.0.2 May 24, 2018
+</code>
+*/
+
+network = {
+  // mainnet: {
+  //   chainId: 'aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906',
+  //   libertyblock: 'https://mainnet.libertyblock.io:7777'
+  // },
+  testnet: {
+    chainId: '038f4b0fc8ff18a4f0842a8f0564611f6e96e8535901dd45e43ac8691a1c4dca',
+    junglenet: 'http://jungle.cryptolions.io:18888'
+  }
+}
+</script>
+
+<script>
+wif = 'L5TCkLizyYqjvKSy6jg1XM3Lc4uTDwwvHS2BYatyXSyoS8T5kC2z'
+
+ecc = Eos.modules.ecc
+unintendedPrivate = ecc.PrivateKey(privateCompressionTweak(wif))
+unintendedPublic = unintendedPrivate.toPublic().toString()
+
+intendedPrivate = ecc.PrivateKey(wif)
+intendedPublic = intendedPrivate.toPublic().toString()
+
+// unintendedKeyProvider = privateCompressionTweak(wif)
+// intendedKeyProvider = wif
+
+chainId = network.testnet.chainId
+httpEndpoint = network.testnet.junglenet
+config = {httpEndpoint, chainId, verbose: true, forceActionDataHex: false}
+
+eos = Eos(Object.assign(config, {keyProvider: unintendedPrivate}))
+</script>
+
+<script>
+async function getNewPermissions(accountName) {
+  const account = await eos.getAccount(accountName)
+  const perms = JSON.parse(JSON.stringify(account.permissions))// clone
+  for(const perm of perms) {
+    for(key of perm.required_auth.keys) {
+      if(key.key === unintendedPublic) {
+        key.key = intendedPublic
+      }
+    }
+  }
+  return perms
+}
+
+async function updateAuths() {
+  let affectedAccounts = (await eos.getKeyAccounts(unintendedPublic)).account_names
+  console.log('Affected account(s):', JSON.stringify(affectedAccounts))
+
+  if(affectedAccounts.length === 0) {
+    return
+  }
+
+  if(affectedAccounts.length > 1) {
+    // As a last step, this index.html file was tested by creating a faucet
+    // account called intendedacct with the correct public keys, then this account
+    // was updated to have the unintendedpk keys.  The result is two accounts.
+    if(JSON.stringify(affectedAccounts.sort()) === '["intendedacct","unintendedpk"]') {
+      affectedAccounts = ['unintendedpk']
+    } else {
+      throw new Error('Fix only one account at a time:', affectedAccounts)
+    }
+  }
+
+  const accountName = affectedAccounts[0]
+  const perms = await getNewPermissions(accountName)
+  console.log('New permissions =>', JSON.stringify(perms))
+
+  // Update of junglenet unintendedpk account failed July 30 '18:
+  // "code":3090003,"name":"unsatisfied_authorization","what":"Provided keys, permissions, and delays do not satisfy declared authorizations"
+
+  const updateAuthResult = await eos.transaction(tr => {
+    for(const perm of perms) {
+      tr.updateauth({
+        account: accountName,
+        permission: perm.perm_name,
+        parent: perm.parent,
+        auth: perm.required_auth
+      }, {authorization: `${accountName}@owner`})
+    }
+  })
+  console.log('Success =>', JSON.stringify(updateAuthResult));
+}
+
+(async function() {
+  await updateAuths()
+})()
+</script>
+
+</head>
+<body>
+</body>
+</html>
