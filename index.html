@@ -8,16 +8,21 @@
   integrity="sha512-vNyLnOEb7uFmEtVbLnyZQ9/k4zckM2Vu3jJOKq6XfWEVZG0yKcjDExVN4EQ7e3F+rePWRncMolI2xFi/3qo62A=="
   crossorigin="anonymous"></script>
 
+<!-- ./index.js is crated from ./src/index.js -->
 <script src="./index.js"></script>
 
 <script>
 /**
+This tweak signs with a 256 + 8 = 264 bit key (called the unintended key).  It
+mimics https://github.com/EOSIO/eosjs-ecc/issues/16 ..  The goal is to
+recover an account owned by the corresponding public key.
+
 On the junglenet, this private key tweak is not passing signature
 validation when used with wif `L5TCkLizyYq..`.
 
 Due to a bug in eosjs-ecc v4.0.0 and prior, Bitcoin compressed WIF private keys
 are accepted but interpreted incorrectly.  Specifically the compression
-flag was included as part of the Private Key changing the resulting
+flag (8 bits) was included as part of the Private Key changing the resulting
 private key number.  That private key number was used to generate a
 matching public key.
 
@@ -39,6 +44,8 @@ into either eosjs-ecc or eosjs for the purpose of account recovery.
 <code>
 Fixed in eosjs-ecc v4.0.1  May 24, 2018 9d4e859
 Fixed in eosjs     v12.0.2 May 24, 2018
+
+Bug appeared in: eosjs-ecc v4.0.0
 </code>
 */
 
@@ -58,28 +65,32 @@ network = {
 wif = 'L5TCkLizyYqjvKSy6jg1XM3Lc4uTDwwvHS2BYatyXSyoS8T5kC2z'
 
 ecc = Eos.modules.ecc
+
 unintendedPrivate = ecc.PrivateKey(privateCompressionTweak(wif))
 unintendedPublic = unintendedPrivate.toPublic().toString()
 
 intendedPrivate = ecc.PrivateKey(wif)
 intendedPublic = intendedPrivate.toPublic().toString()
 
-// unintendedKeyProvider = privateCompressionTweak(wif)
-// intendedKeyProvider = wif
-
 chainId = network.testnet.chainId
 httpEndpoint = network.testnet.junglenet
+
 config = {httpEndpoint, chainId, verbose: true, forceActionDataHex: false}
 
 eos = Eos(Object.assign(config, {keyProvider: unintendedPrivate}))
+
+console.info('Unintended Public Key', unintendedPublic)
+console.info('Intended Public Key', intendedPublic)
 </script>
 
 <script>
+
+/** Replace unintended with intended */
 async function getNewPermissions(accountName) {
   const account = await eos.getAccount(accountName)
   const perms = JSON.parse(JSON.stringify(account.permissions))// clone
   for(const perm of perms) {
-    for(key of perm.required_auth.keys) {
+    for(const key of perm.required_auth.keys) {
       if(key.key === unintendedPublic) {
         key.key = intendedPublic
       }
@@ -99,7 +110,8 @@ async function updateAuths() {
   if(affectedAccounts.length > 1) {
     // As a last step, this index.html file was tested by creating a faucet
     // account called intendedacct with the correct public keys, then this account
-    // was updated to have the unintendedpk keys.  The result is two accounts.
+    // was updated using this program to have the unintendedpk keys.  This
+    // served to test the updateauth and signing in this script.
     if(JSON.stringify(affectedAccounts.sort()) === '["intendedacct","unintendedpk"]') {
       affectedAccounts = ['unintendedpk']
     } else {
@@ -111,7 +123,7 @@ async function updateAuths() {
   const perms = await getNewPermissions(accountName)
   console.log('New permissions =>', JSON.stringify(perms))
 
-  // Update of junglenet unintendedpk account failed July 30 '18:
+  // Account recovery signature did not pass on junglenet, July 30 '18
   // "code":3090003,"name":"unsatisfied_authorization","what":"Provided keys, permissions, and delays do not satisfy declared authorizations"
 
   const updateAuthResult = await eos.transaction(tr => {
@@ -127,6 +139,7 @@ async function updateAuths() {
   console.log('Success =>', JSON.stringify(updateAuthResult));
 }
 
+
 (async function() {
   await updateAuths()
 })()
@@ -134,5 +147,6 @@ async function updateAuths() {
 
 </head>
 <body>
+  Test running..  Open the Web Inspector (Console) to view the output..
 </body>
 </html>

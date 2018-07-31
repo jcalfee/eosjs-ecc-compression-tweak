@@ -5,14 +5,16 @@
   "main": "index.js",
   "scripts": {
     "build": "npm run browserify && npm run srisum",
-    "browserify": "npx browserify@16.2.2 -o lib/eosjs-ecc-compression-tweak.js -s eosjsEccCompressionTweak index.js",
-    "srisum": "npx srisum lib/eosjs-ecc-compression-tweak.js"
+    "browserify": "browserify -o ./index.js -s privateCompressionTweak src/index.js",
+    "srisum": "srisum ./index.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "bigi": "^1.4.2",
-    "bs58": "^4.0.1"
+    "browserify": "16.2.2",
+    "bs58": "^4.0.1",
+    "srisum": "^2.0.0"
   },
   "babel": {
     "presets": [

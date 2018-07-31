@@ -1,6 +1,7 @@
 
 const bs58 = require('bs58')
 const BigInteger = require('bigi')
+const crypto = require('crypto')
 
 /**
   The following is a test that works with eosjs-ecc (and eosjs).
@@ -38,31 +39,33 @@ function privateCompressionTweak(wif) {
   const buffer = Buffer.from(bs58.decode(wif))
 
   const checksum = buffer.slice(-4)
+  const versionKey = buffer.slice(0, -4)
+
   const sha256 = data => crypto.createHash('sha256').update(data).digest()
-  const newCheck = sha256(sha256(key)).slice(0, 4)
+  const newCheck = sha256(sha256(versionKey)).slice(0, 4)
+
   if (checksum.toString() !== newCheck.toString()) {
     throw new Error('Invalid checksum, ' +
       `${checksum.toString('hex')} != ${newCheck.toString('hex')}`
     )
   }
 
-  const versionKey = buffer.slice(0, -4)
   const version = versionKey.readUInt8(0);
   if(0x80 !== version) {
     throw new Error(`Expected version ${0x80}, instead got ${version}`)
   }
 
-  const buf = versionKey.slice(1)
-  if(buf.length !== 33 || buf[32] !== 1) {
+  const key = versionKey.slice(1)
+  if(key.length !== 33 || key[32] !== 1) {
     throw new Error('This tweak requires a compressed private key.')
   }
 
   // Ordinarily the 33rd byte 0x01 would be removed, due to this bug
-  // buf[32] is kept and passed to BigInteger.fromBuffer
+  // key[32] is kept and passed to BigInteger.fromBuffer
 
   // The PrivateKey constructor accepts the BigInteger directly if its 1st arg
   // `d` passes this test: `typeof d === 'object' && BigInteger.isBigInteger(d.d)`
-  return {d: BigInteger.fromBuffer(buf)}
+  return {d: BigInteger.fromBuffer(key)}
 }
 
 module.exports = privateCompressionTweak
