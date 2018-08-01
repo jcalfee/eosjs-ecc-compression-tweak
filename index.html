@@ -11,7 +11,10 @@
 
 <!-- ./index.js is crated from ./src/index.js -->
 <script src="./index.js"></script>
-
+<script>
+console.log(imports);
+let {privateCompressionTweak, BigInteger, ecdsa, hash, ecsignature, curve} = imports
+</script>
 <script>
 /**
 This tweak signs with a 256 + 8 = 264 bit key (called the unintended key).  It
@@ -66,6 +69,7 @@ network = {
 wif = 'L5TCkLizyYqjvKSy6jg1XM3Lc4uTDwwvHS2BYatyXSyoS8T5kC2z'
 
 ecc = Eos.modules.ecc
+Signature = ecc.Signature
 
 unintendedPrivate = ecc.PrivateKey(privateCompressionTweak(wif))
 unintendedPublic = unintendedPrivate.toPublic().toString()
@@ -86,9 +90,44 @@ console.info('Intended Public Key', intendedPublic)
 chainId = network.testnet.chainId
 httpEndpoint = network.testnet.junglenet
 
+// global nonce allows for signatures
+let nonce = (location.hash.match(/nonce=([0-9]+)/) || [,0])[1]
+console.info('Starting signature nonce:', nonce)
+
+signProvider = ({ buf }) => {
+  var privateKey = unintendedPrivate
+  var dataSha256 = hash.sha256(buf)
+
+  var der, e, ecsignature, i, lenR, lenS;
+  i = null;
+  // nonce = 1;
+  e = BigInteger.fromBuffer(dataSha256);
+  while (true) {
+    ecsignature = ecdsa.sign(curve, dataSha256, privateKey.d, nonce);
+    der = ecsignature.toDER();
+    lenR = der[3];
+    lenS = der[5 + lenR];
+    if (lenR === 32 && lenS === 32) {
+      i = ecdsa.calcPubKeyRecoveryParam(curve, e, ecsignature, privateKey.toPublic().Q);
+      i += 4;  // compressed
+      i += 27; // compact  //  24 or 27 :( forcing odd-y 2nd key candidate)
+      break;
+    }
+
+    if (nonce % 10 === 0) {
+      console.log("WARN: " + nonce + " attempts to find canonical signature");
+    }
+    nonce++;
+  }
+  console.info('Generated signature using nonce:', nonce)
+  return Signature(ecsignature.r, ecsignature.s, i).toString()
+}
+
 config = {httpEndpoint, chainId, verbose: true, forceActionDataHex: false}
 
-eos = Eos(Object.assign(config, {keyProvider: unintendedPrivate}))
+
+eos = Eos(Object.assign(config, {signProvider}))
+// eos = Eos(Object.assign(config, {keyProvider: unintendedPrivate}))
 
 
 </script>
@@ -111,7 +150,7 @@ async function getNewPermissions(accountName) {
 
 async function updateAuths() {
   let affectedAccounts = (await eos.getKeyAccounts(unintendedPublic)).account_names
-  console.log('Affected account(s):', JSON.stringify(affectedAccounts))
+  console.info('Affected account(s):', JSON.stringify(affectedAccounts))
 
   if(affectedAccounts.length === 0) {
     return

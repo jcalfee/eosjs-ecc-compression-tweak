@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "npm run browserify && npm run srisum",
-    "browserify": "browserify -o ./index.js -s privateCompressionTweak src/index.js",
+    "browserify": "browserify -o ./index.js -s imports src/index.js",
     "srisum": "srisum ./index.js"
   },
   "author": "",
@@ -14,6 +14,7 @@
     "bigi": "^1.4.2",
     "browserify": "16.2.2",
     "bs58": "^4.0.1",
+    "ecurve": "^1.0.5",
     "srisum": "^2.0.0"
   },
   "babel": {

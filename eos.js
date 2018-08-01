@@ -362,14 +362,15 @@ var ecc = {
         return signature.recoverHash(dataSha256, encoding).toString();
     },
 
-    /** @arg {string|Buffer} data
-        @arg {string} [encoding = 'hex'] - 'hex', 'binary' or 'base64'
+    /** @arg {string|Buffer} data - always binary, you may need Buffer.from(data, 'hex')
+        @arg {string} [encoding = 'hex'] - result encoding 'hex', 'binary' or 'base64'
         @return {string|Buffer} - Buffer when encoding is null, or string
          @example ecc.sha256('hashme') === '02208b..'
+        @example ecc.sha256(Buffer.from('02208b', 'hex')) === '29a23..'
     */
     sha256: function sha256(data) {
-        var encoding = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'hex';
-        return hash.sha256(data, encoding);
+        var resultEncoding = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'hex';
+        return hash.sha256(data, resultEncoding);
     }
 };
 
@@ -453,7 +454,7 @@ function deterministicGenerateK(curve, hash, d, checkSig, nonce) {
 }
 
 function sign(curve, hash, d, nonce) {
-  // ECDSA_do_sign
+
   var e = BigInteger.fromBuffer(hash);
   var n = curve.n;
   var G = curve.G;
@@ -797,27 +798,27 @@ var createHmac = require('create-hmac');
 /** @namespace hash */
 
 /** @arg {string|Buffer} data
-    @arg {string} [encoding = null] - 'hex', 'binary' or 'base64'
-    @return {string|Buffer} - Buffer when encoding is null, or string
+    @arg {string} [resultEncoding = null] - 'hex', 'binary' or 'base64'
+    @return {string|Buffer} - Buffer when resultEncoding is null, or string
 */
-function sha1(data, encoding) {
-    return createHash('sha1').update(data).digest(encoding);
+function sha1(data, resultEncoding) {
+    return createHash('sha1').update(data).digest(resultEncoding);
 }
 
 /** @arg {string|Buffer} data
-    @arg {string} [encoding = null] - 'hex', 'binary' or 'base64'
-    @return {string|Buffer} - Buffer when encoding is null, or string
+    @arg {string} [resultEncoding = null] - 'hex', 'binary' or 'base64'
+    @return {string|Buffer} - Buffer when resultEncoding is null, or string
 */
-function sha256(data, encoding) {
-    return createHash('sha256').update(data).digest(encoding);
+function sha256(data, resultEncoding) {
+    return createHash('sha256').update(data).digest(resultEncoding);
 }
 
 /** @arg {string|Buffer} data
-    @arg {string} [encoding = null] - 'hex', 'binary' or 'base64'
-    @return {string|Buffer} - Buffer when encoding is null, or string
+    @arg {string} [resultEncoding = null] - 'hex', 'binary' or 'base64'
+    @return {string|Buffer} - Buffer when resultEncoding is null, or string
 */
-function sha512(data, encoding) {
-    return createHash('sha512').update(data).digest(encoding);
+function sha512(data, resultEncoding) {
+    return createHash('sha512').update(data).digest(resultEncoding);
 }
 
 function HmacSHA256(buffer, secret) {
@@ -1004,7 +1005,7 @@ function PrivateKey(d) {
 
 /** @private */
 function parseKey(privateStr) {
-    assert(typeof privateStr === 'undefined' ? 'undefined' : _typeof(privateStr), 'string', 'privateStr');
+    assert.equal(typeof privateStr === 'undefined' ? 'undefined' : _typeof(privateStr), 'string', 'privateStr');
     var match = privateStr.match(/^PVT_([A-Za-z0-9]+)_([A-Za-z0-9]+)$/);
 
     if (match === null) {
@@ -1337,7 +1338,7 @@ PublicKey.fromString = function (public_key) {
     @return PublicKey
 */
 PublicKey.fromStringOrThrow = function (public_key) {
-    assert(typeof public_key === 'undefined' ? 'undefined' : _typeof(public_key), 'string', 'public_key');
+    assert.equal(typeof public_key === 'undefined' ? 'undefined' : _typeof(public_key), 'string', 'public_key');
     var match = public_key.match(/^PUB_([A-Za-z0-9]+)_([A-Za-z0-9]+)$/);
     if (match === null) {
         // legacy
@@ -1410,8 +1411,8 @@ function random32ByteBuffer() {
         _ref$safe = _ref.safe,
         safe = _ref$safe === undefined ? true : _ref$safe;
 
-    assert(typeof cpuEntropyBits === 'undefined' ? 'undefined' : _typeof(cpuEntropyBits), 'number', 'cpuEntropyBits');
-    assert(typeof safe === 'undefined' ? 'undefined' : _typeof(safe), 'boolean', 'boolean');
+    assert.equal(typeof cpuEntropyBits === 'undefined' ? 'undefined' : _typeof(cpuEntropyBits), 'number', 'cpuEntropyBits');
+    assert.equal(typeof safe === 'undefined' ? 'undefined' : _typeof(safe), 'boolean', 'boolean');
 
     if (safe) {
         assert(_entropyCount >= 128, 'Call initialize() to add entropy');
@@ -1864,7 +1865,7 @@ Signature.sign = function (data, privateKey) {
 Signature.signHash = function (dataSha256, privateKey) {
     var encoding = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'hex';
 
-    console.log('signHash', 'https://github.com/XuNeal/eosjs-ecc/tree/using_eos_generate_k_algorithm');
+    console.log('XuNeal-using_eos_generate_k_algorithm');
     if (typeof dataSha256 === 'string') {
         dataSha256 = Buffer.from(dataSha256, encoding);
     }
@@ -1888,7 +1889,6 @@ Signature.signHash = function (dataSha256, privateKey) {
             i += 27; // compact  //  24 or 27 :( forcing odd-y 2nd key candidate)
             break;
         }
-
         if (nonce % 10 === 0) {
             console.log("WARN: " + nonce + " attempts to find canonical signature");
         }
@@ -1896,17 +1896,6 @@ Signature.signHash = function (dataSha256, privateKey) {
     }
     return Signature(ecsignature.r, ecsignature.s, i);
 };
-
-// function isCanonical(c) {
-//   // https://steemit.com/steem/@dantheman/steem-and-bitshares-cryptographic-security-update
-//   //
-//   // EOSIO/eos public_key::is_canonical
-//   //
-//   return !(c[1] & 0x80)
-//     && !(c[1] == 0 && !(c[2] & 0x80))
-//     && !(c[33] & 0x80)
-//     && !(c[33] == 0 && !(c[34] & 0x80));
-// }
 
 Signature.fromBuffer = function (buf) {
     var i, r, s;
@@ -1941,7 +1930,7 @@ Signature.fromString = function (signature) {
     @return {Signature}
 */
 Signature.fromStringOrThrow = function (signature) {
-    assert(typeof signature === 'undefined' ? 'undefined' : _typeof(signature), 'string', 'signature');
+    assert.equal(typeof signature === 'undefined' ? 'undefined' : _typeof(signature), 'string', 'signature');
     var match = signature.match(/^SIG_([A-Za-z0-9]+)_([A-Za-z0-9]+)$/);
     assert(match != null && match.length === 3, 'Expecting signature like: SIG_K1_base58signature..');
 

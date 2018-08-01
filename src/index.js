@@ -3,6 +3,13 @@ const bs58 = require('bs58')
 const BigInteger = require('bigi')
 const crypto = require('crypto')
 
+
+const ecdsa = require('eosjs-ecc/src/ecdsa')
+const ecsignature = require('eosjs-ecc/src/ecsignature')
+const hash = require('eosjs-ecc/src/hash')
+const curve = require('ecurve').getCurveByName('secp256k1')
+
+
 /**
   The following is a test that works with eosjs-ecc (and eosjs).
 
@@ -68,4 +75,11 @@ function privateCompressionTweak(wif) {
   return {d: BigInteger.fromBuffer(key)}
 }
 
-module.exports = privateCompressionTweak
+module.exports = {
+  privateCompressionTweak,
+  ecsignature,
+  BigInteger,
+  ecdsa,
+  curve,
+  hash
+}
