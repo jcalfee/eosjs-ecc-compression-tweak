@@ -5,11 +5,8 @@
 <head>
 
 <script src="./eos.js"></script>
-<!-- <script src="https://cdn.jsdelivr.net/npm/eosjs@16.0.0/lib/eos.min.js"
-  integrity="sha512-vNyLnOEb7uFmEtVbLnyZQ9/k4zckM2Vu3jJOKq6XfWEVZG0yKcjDExVN4EQ7e3F+rePWRncMolI2xFi/3qo62A=="
-  crossorigin="anonymous"></script> -->
 
-<!-- ./index.js is crated from ./src/index.js -->
+<!-- ./index.js is crafted from ./src/index.js -->
 <script src="./index.js"></script>
 <script>
 console.log(imports);
@@ -20,9 +17,6 @@ let {privateCompressionTweak, BigInteger, ecdsa, hash, ecsignature, curve} = imp
 This tweak signs with a 256 + 8 = 264 bit key (called the unintended key).  It
 mimics https://github.com/EOSIO/eosjs-ecc/issues/16 ..  The goal is to
 recover an account owned by the corresponding public key.
-
-On the junglenet, this private key tweak is not passing signature
-validation when used with wif `L5TCkLizyYq..`.
 
 Due to a bug in eosjs-ecc v4.0.0 and prior, Bitcoin compressed WIF private keys
 are accepted but interpreted incorrectly.  Specifically the compression
@@ -91,7 +85,7 @@ chainId = network.testnet.chainId
 httpEndpoint = network.testnet.junglenet
 
 // global nonce allows for signatures
-let nonce = (location.hash.match(/nonce=([0-9]+)/) || [,0])[1]
+let nonce = (location.hash.match(/nonce=([0-9]+)/) || [,0])[1] // start with 0
 console.info('Starting signature nonce:', nonce)
 
 signProvider = ({ buf }) => {
@@ -125,15 +119,11 @@ signProvider = ({ buf }) => {
 
 config = {httpEndpoint, chainId, verbose: true, forceActionDataHex: false}
 
-
 eos = Eos(Object.assign(config, {signProvider}))
 // eos = Eos(Object.assign(config, {keyProvider: unintendedPrivate}))
-
-
 </script>
 
 <script>
-
 /** Replace unintended with intended */
 async function getNewPermissions(accountName) {
   const account = await eos.getAccount(accountName)
@@ -172,9 +162,6 @@ async function updateAuths() {
   const perms = await getNewPermissions(accountName)
   console.log('New permissions =>', JSON.stringify(perms))
 
-  // Account recovery signature did not pass on junglenet, July 30 '18
-  // "code":3090003,"name":"unsatisfied_authorization","what":"Provided keys, permissions, and delays do not satisfy declared authorizations"
-
   const updateAuthResult = await eos.transaction(tr => {
     for(const perm of perms) {
       tr.updateauth({
@@ -187,7 +174,6 @@ async function updateAuths() {
   })
   console.log('Success =>', JSON.stringify(updateAuthResult));
 }
-
 
 (async function() {
   await updateAuths()
